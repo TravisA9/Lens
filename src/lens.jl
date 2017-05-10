@@ -1,31 +1,11 @@
-module lens
+pmodule lens
 include("Utility.jl")
 using ImageView, Images, TestImages #, CoordinateTransformations, OffsetArrays
 using ImageFiltering, Colors, ImageMetadata
 
-<<<<<<< HEAD
-using ImageView, Images, TestImages #, CoordinateTransformations, OffsetArrays
-using ImageFiltering, Colors, ImageMetadata
-
-type Point
-    x::Float32
-    y::Float32
-    Point(x,y) = new(x,y)
-end
-=======
-
->>>>>>> Travis
-
 imgc = testimage("mandrill")
 # or this to load your own file!
 # using FileIO
-
-
-#imgc = imfilter(img, Kernel.gaussian(3));
-# imgc = rand(RGB{Float32},200,200)
-<<<<<<< HEAD
-
-=======
 # ------------------------------------------------------------------------------
 # I think that the way to do the ray tracing is to use an array of "Lens" values
 # as the curve of the imaginary lens. Since it is a curve and not a 3d shape the
@@ -38,87 +18,95 @@ imgc = testimage("mandrill")
 # The angle that the ray is bent to is an inversion relative to the angle of the
 # point on the curve that is hit by the ray. So, for surface angle  +0.953
 # ------------------------------------------------------------------------------
-rot   =   1.5707963 # 90°
-
-# ==============================================================================
->>>>>>> Travis
-function Lens(origin,  point, size)
-    d = distance(origin, point)/size
-    return 1 / ((d)+1) # or optionally (d*d) for a more gradual curve
-end
-
-<<<<<<< HEAD
-=======
 
 
-# ==============================================================================
->>>>>>> Travis
-function distance(origin, point)
-    X = origin.x - point.x
-    Y = origin.y - point.y
-    return sqrt( (X*X) + (Y*Y) )
-end
+ Curve = [( 1/(X+1) ) for X in 1000:-1:-1000]
+  Curve[1002] = 0 # because it was "Inf"
 
-<<<<<<< HEAD
-# println(typeof(imgc[]))
- width, height = size(imgc)
-
-O = Point(width*.5, height*.5)
-for x in 1:width
-    for y in 1:height
-        value = Lens(O,  Point(x,y), 50)
-        p = imgc[x,y]
-
-            r = (red(p)   + value)*.5
-            b = (green(p) + value)*.5
-            g = (blue(p)  + value)*.5
-        imgc[x,y] = RGB(convert(N0f8,r),convert(N0f8,g),convert(N0f8,b))
-    end
-end
-=======
- Curve = [( 1/(X+1) ) for X in 1:2000]
-# ==============================================================================
-function restrict(lower, i, upper)
-    if i > upper
-        return upper
-    end
-    if i < lower
-        return lower
-    end
-    return i
-end
 # * 180 / pi
 # ==============================================================================
  width, height = size(imgc)
-println("type: ", typeof(width))
-halfWidth, halfHeight = width*.5, height*.5
-O = Point(halfWidth, halfHeight)
+ halfWidth, halfHeight = width*.5, height*.5
+ O = Point(halfWidth, halfHeight)
 
 for x in 1:width
     for y in 1:height
         #value = Lens(O,  Point(x,y), 50)
-        dist = round(Int64 , abs(distance(O, Point(x,y))))
-        angle = getAngle(halfWidth, halfHeight, x,y)
+         dist = round(Int64 , abs(distance(O, Point(x,y))))+1 # +1 to avoid zero
+        # angle = getAngle(halfWidth, halfHeight, x,y)
 # println("dist: $dist")
-    dist == 0 && (dist = 1)
-        i = Curve[round(Int64, dist)]/10 #-Curve[dist+2]
-        rx,ry = rotateZ3D(i, x+0.0, y+0.0)
+    #dist == 0 && (dist = 1)
+        #i = Curve[round(Int64, dist)]/10 #-Curve[dist+2]
+        #rx,ry = rotateZ3D(i, x+0.0, y+0.0)
+# x = 7     # x = 13   (-3 and +3 from origion respectively)
+# HW = 10   # HW = 10
+# W =  20   # W =  20
+# x-HW = -3  # x-HW = 3
+
+### relx = x-halfWidth
+### rely = y-halfHeight
+        ### ax = relx + (Curve[round(Int64, 1002 + round(Int64, relx) )])
+        ### ay = rely + (Curve[round(Int64, 1002 + round(Int64, rely) )])
 
 
-        rx = round(Int64, rx )
-        ry = round(Int64, ry )
+#angle = 2 # getAngle(halfWidth, halfHeight, x,y)
+#az = 1
+# dx = 1+(1/(abs(x-halfWidth)+1)) #1/(X+1)
+# dy = 1+(1/(abs(y-halfHeight)+1)) #1/(X+1)
+
+d = 1+(1/((dist*0.5)+1)) #1/(X+1)
+ax =  (x-halfWidth)*d #
+ay = (y-halfHeight)*d #(1/dist)   #rotateZ3D(0.01, x, y) #rotateZ3D
+        rx = 0# round(Int64, ax+halfWidth )
+        ry = round(Int64, ay+halfHeight )
+        #rz = round(Int64, az )
         # println(rx, ry)
     if rx > 0 && rx <= width && ry > 0 && ry <= height
             p = imgc[rx,ry]
             imgc[x,y] = RGB(red(p),green(p),blue(p))
     else
-            imgc[x,y] = RGB(convert(N0f8,0),convert(N0f8,0),convert(N0f8,0))
+      # print("n $rx, $ry: ")
+            imgc[x,y] = RGB(0,0,0.3)
     end
 
     end
 end
+
 # ==============================================================================
->>>>>>> Travis
+# just playing arround ...kinda'
+# ==============================================================================
+function DrawCircle(r, x, y, color)
+  deg = pi/180
+
+  points = []
+  for t in (0*deg):0.01:(360*deg) #(r*3.2)
+    xx, yy = rotateZ3D(t, r, r)
+    push!(points, [xx, yy, r])
+  end
+
+
+    for i in 1:length(points)
+      xx, zz = rotateY3D((45*deg), points[i][1], points[i][3])
+         imgc[ round(Int64, xx + x),
+               round(Int64, points[i][2] + y)
+               ] = color
+    end
+end
+# ==============================================================================
+# ==============================================================================
+function DrawCircle2(r, x, y, color)
+  deg = pi/180
+    for t in -(45*deg):0.01:(360*deg) #(r*3.2)
+
+         imgc[  round(Int64, r*cos(t) + x),
+                round(Int64, r*sin(t) + y)
+               ] = color
+    end
+end
+# ==============================================================================
+
+DrawCircle(width/5, halfWidth, halfHeight, RGB(1,0,0))
+
 
 imshow(imgc, pixelspacing = [1,1])
 
