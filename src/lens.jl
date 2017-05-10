@@ -1,4 +1,4 @@
-pmodule lens
+module lens
 include("Utility.jl")
 using ImageView, Images, TestImages #, CoordinateTransformations, OffsetArrays
 using ImageFiltering, Colors, ImageMetadata
