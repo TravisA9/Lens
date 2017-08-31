@@ -7,8 +7,8 @@
 # a few convenience variables...
 # NOTE: be sure to change the directory if needed
 #    blueGalaxy.jpg    Galaxy.JPG    Spiral.jpg
-     buffer = load("/home/travis/Julia Stuff/lens/images/Galaxy.JPG")
-     imgc = load("/home/travis/Julia Stuff/lens/images/Galaxy.JPG")
+     buffer = load("/lens/images/Galaxy.JPG")
+     imgc = load("/lens/images/Galaxy.JPG")
      width, height = size(imgc)
      halfWidth, halfHeight = round(Int64, width*.5), round(Int64, height*.5)
 # ==============================================================================
