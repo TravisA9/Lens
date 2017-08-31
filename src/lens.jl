@@ -1,113 +1,137 @@
-module lens
-include("Utility.jl")
-using ImageView, Images, TestImages #, CoordinateTransformations, OffsetArrays
-using ImageFiltering, Colors, ImageMetadata
 
-imgc = testimage("mandrill")
-# or this to load your own file!
-# using FileIO
-# ------------------------------------------------------------------------------
-# I think that the way to do the ray tracing is to use an array of "Lens" values
-# as the curve of the imaginary lens. Since it is a curve and not a 3d shape the
-# formula can be applied radially by simply measuring the distance of each pixel
-# from the lens origion and using the distance as the index of the lens array.
+
+# include("Utility.jl")
+# include("Draw.jl")
+
+# ==============================================================================
+# a few convenience variables...
+# NOTE: be sure to change the directory if needed
+#    blueGalaxy.jpg    Galaxy.JPG    Spiral.jpg
+     buffer = load("/home/travis/Julia Stuff/lens/images/Galaxy.JPG")
+     imgc = load("/home/travis/Julia Stuff/lens/images/Galaxy.JPG")
+     width, height = size(imgc)
+     halfWidth, halfHeight = round(Int64, width*.5), round(Int64, height*.5)
+# ==============================================================================
+#                                  CURRENT METHOD:
+# ------------------------------------o--------------------p--------------------    <-- source image
+#                                     |--------------------|                        <-- d
+# ------------------------------------o---------p-------------------------------    <-- altered image
+#                                     |---------|  = x = ((x-o)*(1/d)) * degree
 #
-# We must also keep track of the angle of the pixel (from the lens origin) for
-# later use in ray tracing.
-#
-# The angle that the ray is bent to is an inversion relative to the angle of the
-# point on the curve that is hit by the ray. So, for surface angle  +0.953
+# Above you can see an example of a pixel (p) at distance (d) from origion (o)
+# in the line representing the altered image p has been displaced. How is that
+# displacement value calculated? ...logically it must be a value that is relative
+# to the distance. I am using the following method: calculat the distance (d),
+# miltiply each dimention (x and y) by the value ((1/d) * degree) I then assign
+# the color values from the new pixel location to the origional pixel location.
 # ------------------------------------------------------------------------------
 
-
- Curve = [( 1/(X+1) ) for X in 1000:-1:-1000]
-  Curve[1002] = 0 # because it was "Inf"
-
-# * 180 / pi
 # ==============================================================================
- width, height = size(imgc)
- halfWidth, halfHeight = width*.5, height*.5
- O = Point(halfWidth, halfHeight)
-
-for x in 1:width
-    for y in 1:height
-        #value = Lens(O,  Point(x,y), 50)
-         dist = round(Int64 , abs(distance(O, Point(x,y))))+1 # +1 to avoid zero
-        # angle = getAngle(halfWidth, halfHeight, x,y)
-# println("dist: $dist")
-    #dist == 0 && (dist = 1)
-        #i = Curve[round(Int64, dist)]/10 #-Curve[dist+2]
-        #rx,ry = rotateZ3D(i, x+0.0, y+0.0)
-# x = 7     # x = 13   (-3 and +3 from origion respectively)
-# HW = 10   # HW = 10
-# W =  20   # W =  20
-# x-HW = -3  # x-HW = 3
-
-### relx = x-halfWidth
-### rely = y-halfHeight
-        ### ax = relx + (Curve[round(Int64, 1002 + round(Int64, relx) )])
-        ### ay = rely + (Curve[round(Int64, 1002 + round(Int64, rely) )])
-
-
-#angle = 2 # getAngle(halfWidth, halfHeight, x,y)
-#az = 1
-# dx = 1+(1/(abs(x-halfWidth)+1)) #1/(X+1)
-# dy = 1+(1/(abs(y-halfHeight)+1)) #1/(X+1)
-
-d = 1+(1/((dist*0.5)+1)) #1/(X+1)
-ax =  (x-halfWidth)*d #
-ay = (y-halfHeight)*d #(1/dist)   #rotateZ3D(0.01, x, y) #rotateZ3D
-        rx = 0# round(Int64, ax+halfWidth )
-        ry = round(Int64, ay+halfHeight )
-        #rz = round(Int64, az )
-        # println(rx, ry)
-    if rx > 0 && rx <= width && ry > 0 && ry <= height
-            p = imgc[rx,ry]
-            imgc[x,y] = RGB(red(p),green(p),blue(p))
-    else
-      # print("n $rx, $ry: ")
-            imgc[x,y] = RGB(0,0,0.3)
-    end
-
-    end
-end
-
+# Calculate the distance between a and b
 # ==============================================================================
-# just playing arround ...kinda'
-# ==============================================================================
-function DrawCircle(r, x, y, color)
-  deg = pi/180
-
-  points = []
-  for t in (0*deg):0.01:(360*deg) #(r*3.2)
-    xx, yy = rotateZ3D(t, r, r)
-    push!(points, [xx, yy, r])
-  end
-
-
-    for i in 1:length(points)
-      xx, zz = rotateY3D((45*deg), points[i][1], points[i][3])
-         imgc[ round(Int64, xx + x),
-               round(Int64, points[i][2] + y)
-               ] = color
-    end
+function distance(xa,ya, xb,yb)
+    X, Y = (xa - xb), (ya - yb)
+    return sqrt( (X*X) + (Y*Y) )
 end
 # ==============================================================================
+# Calculate a lens effect: x = ((oy-x)*(1/d) * degree) and y = ((oy-y)*(1/d) * degree)
 # ==============================================================================
-function DrawCircle2(r, x, y, color)
-  deg = pi/180
-    for t in -(45*deg):0.01:(360*deg) #(r*3.2)
+function warp(x,y, ox,oy, degree)
+    dx, dy = round(Int64, x), round(Int64, y)
+        D = distance(ox,oy, x,y)
 
-         imgc[  round(Int64, r*cos(t) + x),
-                round(Int64, r*sin(t) + y)
-               ] = color
+        D==Inf ? d=0 : d = D              # 1/0 = Inf (infinit) let's make that 0 instead
+        if D!=0                           # No point in doing anything if it's zero
+            d = (1/d) * degree;           #
+        end
+
+# cx,cy is the origion so (cx-x), for example, gets the +/- x distance from origion.
+        dx = (ox-x)*d
+        dy = (oy-y)*d
+
+    # round these to Ints because they'll have to translate to pixel coords.
+    return (round(Int64,x+dx),round(Int64,y+dy)) # hmmm.. I don't remember why: x+dx, y+dy
+end
+# ==============================================================================
+# Apply function warp() to all pixels:
+# ==============================================================================
+function paintThis()
+    for x in 1:width
+        for y in 1:height
+
+            # The last value determins the degree of lensing!
+            X, Y = warp(x,y, halfWidth, halfHeight-8, 200)
+
+                if Y < height && Y > 0 && X < width && X > 0
+                    imgc[x,y] =  buffer[X,Y]
+                else
+                    # plot black pixel because the value falls outside the image's bounds
+                    imgc[x,y] = RGB(0,0,0)
+                end
+        end
     end
 end
 # ==============================================================================
 
-DrawCircle(width/5, halfWidth, halfHeight, RGB(1,0,0))
 
-
-imshow(imgc, pixelspacing = [1,1])
+paintThis()
+imshow(imgc, aspect=:auto)
 
 end # module
+
+#                                  A BETTER METHOD:
+# ------------------------------------o--------------------p--------------------    <-- source image
+#                                     |--------------------|                        <-- d
+# ------------------------------------o---------p-------------------------------    <-- altered image
+#                                     |---------|  x = ((x-o)*(1/d)) * degree
+#
+# By making adjustments to the method used above we could actially build a
+# speaciallised ray tracer that would work well for our purposes. We could use
+# the same formula or modify the existing formula. Compare the above method to
+# the following:
+#
+# ------------------------------------o--------------------p--------------------    <-- source image
+#                                     |-------------------/
+#                                     |------------------/
+#                                     |-----------------/
+#                                     |----------------/
+#                                     |---------------/  <-- v
+#                                     |--------------/
+#                                     |-------------/
+#                                     |------------/
+#                                     |-----------/
+#                                     |----------/
+# ------------------------------------o---------p-------------------------------    <-- altered image
+#                                     |---------|  x = d = ((x-o)*(1/d)) * degree
+#
+# By assigning an arbitrary distance between the source image and the altered image
+# we create 3d vectors which we could use to trace on in to an imaginary space until
+# the ray hits something. Once it does the color of the pixel can be assigned.
+#
+#                    How can this be realisticaly applied?
+# We can make a simple function or even just a database of stars and galaxies
+# along with descriptive data; for example, how much a galaxy weighs and hence
+# how great of a lensing effect it would create. Another bit of data that would
+# be important would be the relative scale of each object. That data would be
+# important for generating realistic image scenarios.
+# The objects could be randomely located within an imaginary space within certain
+# predefined limits.
+# For the z-plane of each object that is inserted/generated a proportional lensing
+# field would be created. Then the rest is --in theory-- quite simple... for each
+# pixel of the image (to be generated) a vector is traced through space... the
+# vector is altered according to the value of each lensing layer that the ray
+# passes through. If the ray never hits an object the pixel is assigned black a
+# color. If the ray intersects an image, the pixel is assigned a corresponding color.
+#
+# I believe that is also solves some problems that I had expected to encounter
+# later on. For example, the formula I am using calculates a simetrical distortion
+# with an origion ...but what about asimetrical distortions caused by distributed
+# mass? The average all of the functions that lye on the same z-plane should
+# result in a realistic approximation of an asimetrical gravitational lens. It may
+# even be convenient to speed the proccess up by creating vector maps of certain
+# planes with complex distortions. Then instead of doing a series of calculations
+# for each pixel, we could just add (?) the corresponding vector to the ray as it
+# "passes through" that plane.
+#
+# I see no reason that I cannot accomplish this!
+# ------------------------------------------------------------------------------
