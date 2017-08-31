@@ -1,6 +1,4 @@
-module lens
-using ImageView, Images, TestImages
-using ImageFiltering, Colors, ImageMetadata, FixedPointNumbers
+
 
 # include("Utility.jl")
 # include("Draw.jl")
