@@ -44,17 +44,18 @@ galaxies = ["E0", "E3", "E7", "S0", "Sa", "Sb", "SBa", "SBb", "SBc", "Sc"]
 function createRandomBodies(space, number, bounds) # 1575
     Z = rand( 1:bounds, number) # Create Z coords before anything else
     sort!(Z) # Now sort them for depth
-    str = "{  \"number\":$(number), \"bounds\":$(bounds),  \"bodies\":[  "
+    str = "\t\t{  \"number\":$(number), \"bounds\":$(bounds),  \"bodies\":[  "
     for i in 1:number
         # Eventually the weight "10" will have to be correctly calculated!
-        str *= createBody(space, 50, rand(galaxies), rand(1:bounds), rand(1:bounds), Z[i])
+        if i>1; str *= ", "; end
+        str *= createBody(space, 10, rand(galaxies), rand(1:bounds), rand(1:bounds), Z[i])
     end
 
-    return str*= "] },"
+    return str*= "\n\t\t\t]\n\t\t}"
 end
 # ------------------------------------------------------------------------------
 function createBody(body, weight, class, x, y, z)
-    str = "{  \"class\":\"$(class)\", \"value\":$(weight), \"x\":$(x), \"y\":$(y), \"z\":$(z)  },"
+    str = "\n\t\t\t{  \"class\":\"$(class)\", \"value\":$(weight), \"x\":$(x), \"y\":$(y), \"z\":$(z)  }"
     blackHole = Body(convert(Float64, weight), convert(Float64, x), convert(Float64, y), convert(Float64, z))
     blackHole.class = class * ".jpg"
     blackHole.curve = [ (1/X) for X in 1:10000] * weight
@@ -169,18 +170,19 @@ end
 # ==============================================================================
 function generateImages(directory, quantity::Int64, lensLimit, expanse::Int64)
 
-report = "\"images\":["
+report = "\"images\":[\n"
 
 
     for index in 1:quantity # many images
         space = Space(directory, expanse)
+        if index>1; report *= ", \n"; end
         report *= createRandomBodies(space, rand(1:lensLimit), expanse)
         generator(space, index)
     end
     report *= "]\r"
     println("Ok, finished generating $(quantity) pairs of images!")
     # print(report)
-    open( directory * "report.txt", "w") do f
+    open( directory * "report.json", "w") do f
             write(f, report)
     end
 end
