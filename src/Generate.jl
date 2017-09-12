@@ -1,7 +1,7 @@
 module Generate
-using ImageView, Images, TestImages
+using ImageView, Images
 using ImageFiltering, Colors, ImageMetadata, FixedPointNumbers
-
+# using , TestImages
 # ==============================================================================
 # a few convenience variables...
      currentPath = pwd()
@@ -48,7 +48,7 @@ function createRandomBodies(space, number, bounds) # 1575
     for i in 1:number
         # Eventually the weight "10" will have to be correctly calculated!
         if i>1; str *= ", "; end
-        str *= createBody(space, 10, rand(galaxies), rand(1:bounds), rand(1:bounds), Z[i])
+        str *= createBody(space, round(Int64, ((bounds-Z[i])*0.1)+1), rand(galaxies), rand(1:bounds), rand(1:bounds), Z[i])
     end
 
     return str*= "\n\t\t\t]\n\t\t}"
@@ -61,18 +61,6 @@ function createBody(body, weight, class, x, y, z)
     blackHole.curve = [ (1/X) for X in 1:10000] * weight
     push!(body.bodies, blackHole )
     return str
-end
-# ==============================================================================
-# function warp(x,y, ox,oy, degree)
-function warp(x,y, body) # TODO: later make this work with slices (that is to say vector fields)
-    ox, oy = body.x, body.y
-        dx, dy = (ox - x), (oy - y) # Get 1D, 1D distance
-        D = sqrt( (dx * dx) + (dy * dy)  ) # Get 2D distance
-        (D==0) && return (0,0) # No point in doing anything if it's zero
-
-        d = body.curve[round(Int64,D)];
-        X,Y   =  round(Int64,x+(dx*d)), round(Int64,y+(dy*d))
-    return (X,Y)
 end
 # ==============================================================================
 # Test if in bounds
@@ -92,20 +80,33 @@ function interpolate(img, x,y )
     (y < 2)  ? ca = 1 : ca = y-1
     (y >= H) ? cc = H : cc = y+1
 
-    return  (float32(img[x,y])*2 + img[x,ca] + img[x,cc] + img[ra,y] + img[rc,y])/6
+    return  (float32(img[x,y]) + img[x,ca] + img[x,cc] + img[ra,y] + img[rc,y])/5
 
+end
+# ==============================================================================
+# function warp(x,y, ox,oy, degree)
+# ==============================================================================
+function warp(x,y, body) # TODO: later make this work with slices (that is to say vector fields)
+    ox, oy = body.x, body.y
+        dx, dy = (ox - x), (oy - y) # Get 1D, 1D distance
+        D = sqrt( (dx * dx) + (dy * dy)  ) # Get 2D distance
+        (D==0) && return (0,0) # No point in doing anything if it's zero
+
+        d = body.curve[round(Int64,D)];
+        X,Y   =  round(Int64,x+(dx*d)), round(Int64,y+(dy*d))
+    return (X,Y)
 end
 # ==============================================================================
 # Draw a small images to "image"
 # ==============================================================================
-function paintToFlat(image, bodies) # it may be possible to do this with view()
+function paintToFlat(image, bodies, bounds) # it may be possible to do this with view()
     imagewidth, imageheight = size(image)
 
 
     for body in bodies # for each body
         buffer = load(currentPath * "/lens/images/" * body.class)
-        #sz = rand(0.3:1.0)
-        #buffer = imresize(buffer, 10 ) # imresize(buffer, 4) restrict(buffer, [1,1])
+        sz = round(Int64, ((bounds-body.z)*0.1)+1) # body.value # round(Int64, ((bounds-body.z)*0.1)+1)
+        buffer = imresize(buffer, (sz,sz) )
         width, height = size(buffer)
         halfWidth, halfHeight = round(Int64, width*.5), round(Int64, height*.5)
         rx, ry = rand(1:imagewidth), rand(1:imagewidth)
@@ -133,7 +134,7 @@ end
 function generator(space, index)
     size = round(Int64, space.limit)
     flat = fill(RGB{N0f8}(0,0,0),(size, size))
-    flat = paintToFlat(flat, space.bodies)
+    flat = paintToFlat(flat, space.bodies, space.limit)
     warped = fill(RGB{N0f8}(0,0,0),(size, size))
     width, height = size, size
     halfWidth, halfHeight = round(Int64, size*.5), round(Int64, size*.5)
@@ -191,8 +192,8 @@ end
 
     generateImages(
             currentPath * "/lens/output/", # destination path fro generated files
-            4,                             # number of image sets to generate (sets because 1 = warp_1.jpg, flat_1.jpg)
-            6,                             # maximum number of lenses
+            10,                             # number of image sets to generate (sets because 1 = warp_1.jpg, flat_1.jpg)
+            16,                             # maximum number of lenses
             500                            # a value for height, width, depth of space
         )
 
